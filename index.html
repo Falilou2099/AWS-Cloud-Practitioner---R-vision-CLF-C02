@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Cloud Practitioner - Révision CLF-C02</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .perspective { perspective: 1000px; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .animate-enter { animation: enter 0.3s ease-out; }
+        @keyframes enter { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
+        .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script src="questions.js"></script>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ==============================================================================
+        //  MODULES DE RÉVISION
+        // ==============================================================================
+
+        const MODULES = [
+            {
+                id: "billing",
+                title: "Facturation & Support",
+                icon: "💰",
+                color: "bg-green-100 text-green-700",
+                details: [
+                    { title: "Plans de Support", content: "• Basic: Gratuit. Accès Service Health Dashboard & Trusted Advisor (limité). Pas de support tech.\n• Developer: Support mail (heures ouvrées). 1 contact. Réponse < 24h (général), < 12h (système altéré).\n• Business: Support 24/7 (Chat/Tel). Réponse < 1h (système en panne). Accès API Support.\n• Enterprise: TAM (Technical Account Manager) dédié. Réponse < 15min (Business Critical). Concierge Support." },
+                    { title: "Outils de Coûts", content: "• AWS Cost Explorer: Visualiser les coûts passés et prévisions futures (3 mois). Graphiques.\n• AWS Budgets: Définir des seuils et recevoir des alertes (SNS, Email) AVANT ou APRÈS dépassement.\n• Pricing Calculator: Estimer le coût d'une architecture avant déploiement.\n• TCO Calculator: Comparer coût On-Premise vs Cloud (Capex vs Opex)." },
+                    { title: "AWS Organizations", content: "• Consolidated Billing: Une seule facture pour tous les comptes.\n• Volume Discounts: Cumuler l'usage de tous les comptes pour payer moins cher (S3/EC2).\n• SCP (Service Control Policies): Restreindre les services autorisés sur les sous-comptes." },
+                    { title: "Tags", content: "• Cost Allocation Tags: Étiquettes pour suivre les coûts par projet, département ou environnement. Doivent être activés dans le Billing Dashboard." }
+                ]
+            },
+            {
+                id: "security",
+                title: "Sécurité & IAM",
+                icon: "🛡️",
+                color: "bg-red-100 text-red-700",
+                details: [
+                    { title: "IAM", content: "• Users: Personnes physiques. Long-term credentials.\n• Groups: Collection d'utilisateurs.\n• Roles: Identité temporaire pour services (ex: EC2 accède à S3) ou Cross-Account access.\n• Policies: Documents JSON (Effect: Allow/Deny). Principe du Moindre Privilège.\n• MFA: Obligatoire pour le compte Root." },
+                    { title: "Protection", content: "• Shield Standard: Anti-DDoS gratuit (couche 3/4). Activé par défaut.\n• Shield Advanced: Anti-DDoS payant + remboursement frais + Support DDoS Team (DRT).\n• WAF: Pare-feu Web (couche 7). Bloque SQL Injection, XSS, Geo-blocking.\n• KMS: Gestion des clés de chiffrement (Géré par AWS). Intégré aux services.\n• CloudHSM: Hardware Security Module dédié (vous gérez les clés)." },
+                    { title: "Détection & Audit", content: "• GuardDuty: Détection menaces intelligente (Machine Learning, analyse logs DNS/VPC/CloudTrail).\n• Inspector: Scan vulnérabilités OS et Réseau (Agent nécessaire sur EC2).\n• CloudTrail: Qui a fait quoi ? (Logs d'audit API pour gouvernance et conformité).\n• Config: Historique des configurations et inventaire (Timeline des changements)." },
+                    { title: "Données Sensibles", content: "• Macie: Utilise le ML pour découvrir des données sensibles (PII, Carte bancaire) dans S3.\n• Artifact: Téléchargement rapports conformité (ISO, SOC, PCI) pour auditeurs." }
+                ]
+            },
+            {
+                id: "compute",
+                title: "Compute (Calcul)",
+                icon: "⚙️",
+                color: "bg-orange-100 text-orange-700",
+                details: [
+                    { title: "EC2 Pricing", content: "• On-Demand: Prix fort, flexible, pas d'engagement. Pour workloads courts/imprévisibles.\n• Reserved (RI): Engagement 1 ou 3 ans (-72%). Paiement: All/Partial/No Upfront. Convertible RI permet de changer de type.\n• Spot: Prix de marché (-90%). Peut être interrompu avec préavis de 2 min. Pour batch, tests.\n• Dedicated Host: Serveur physique dédié (pour licences BYOL, compliance)." },
+                    { title: "Types EC2", content: "• General Purpose (T3, M5): Équilibre (Web serveurs).\n• Compute Optimized (C5): Batch processing, Gaming, HPC.\n• Memory Optimized (R5): Grosses bases de données en RAM.\n• Storage Optimized (I3): NoSQL, Data Warehouse." },
+                    { title: "Containers & Serverless", content: "• Lambda: Code pur. Temps d'exécution limité (15min). Event-driven. Paye à la requête/durée.\n• ECS: Docker géré par AWS (Orchestrateur maison).\n• EKS: Kubernetes géré par AWS.\n• Fargate: Serverless pour conteneurs (pas de gestion EC2 sous-jacente)." }
+                ]
+            },
+            {
+                id: "storage",
+                title: "Stockage",
+                icon: "💾",
+                color: "bg-blue-100 text-blue-700",
+                details: [
+                    { title: "S3 Classes", content: "• Standard: Accès fréquent.\n• Intelligent-Tiering: Déplace auto (IA) entre fréquent/infrequent. Pas de frais de retrieval.\n• Standard-IA: Infrequent Access (moins cher stockage, payant accès). Dispo immédiate.\n• One Zone-IA: Moins cher, une seule AZ (données recréables).\n• Glacier Instant Retrieval: Millisecondes.\n• Glacier Flexible: 1min à 12h.\n• Glacier Deep Archive: 12h à 48h (le moins cher)." },
+                    { title: "Block vs File", content: "• EBS: Block storage. Attaché à 1 EC2. Disque dur OS. AZ-specific. Snapshots pour backup.\n• EFS: File storage (NFS). Attaché à plusieurs EC2 Linux. Multi-AZ. Elastique.\n• Instance Store: Éphémère (données perdues si arrêt). Très rapide (physiquement attaché)." },
+                    { title: "Migration", content: "• Snowball Edge: Valise physique pour transférer Pétaoctets (Offline). Capacité de calcul (Edge).\n• Snowmobile: Camion (Exaoctets).\n• Storage Gateway: Pont entre On-Prem et S3 (File/Volume/Tape Gateway)." }
+                ]
+            },
+            {
+                id: "db",
+                title: "Bases de Données",
+                icon: "🗄️",
+                color: "bg-purple-100 text-purple-700",
+                details: [
+                    { title: "Relationnel (SQL)", content: "• RDS: Géré (Patching, Backup auto). Moteurs: MySQL, Postgres, Oracle, SQL Server, MariaDB. Multi-AZ pour Disaster Recovery.\n• Aurora: Propriétaire AWS. Compatible MySQL/Postgres. 5x plus rapide. Stockage auto-agrandissant. Réplicas lecture." },
+                    { title: "NoSQL & Autres", content: "• DynamoDB: Clé-Valeur. Serverless. Millisecondes. Haute échelle. DAX pour cache.\n• ElastiCache: Cache en mémoire (Redis/Memcached). Pour accélérer lecture DB ou stocker sessions.\n• Redshift: Data Warehouse (OLAP). Pour BI et Analytique. Colonnes.\n• Neptune: Base de données Graphe (Réseaux sociaux).\n• QLDB: Ledger (Livre de comptes immuable)." }
+                ]
+            },
+            {
+                id: "network",
+                title: "Réseau & VPC",
+                icon: "🌐",
+                color: "bg-indigo-100 text-indigo-700",
+                details: [
+                    { title: "VPC Basics", content: "• VPC: Réseau privé virtuel (Region level).\n• Subnet: Division du VPC (AZ level). Public = accès internet, Privé = non.\n• Internet Gateway (IGW): Porte vers internet.\n• NAT Gateway: Permet au subnet privé de sortir vers internet (mises à jour) sans entrer." },
+                    { title: "Sécurité Réseau", content: "• Security Group: Niveau Instance. Stateful (Retour autorisé auto). Allow rules only.\n• NACL: Niveau Subnet. Stateless (Retour doit être autorisé explicitement). Allow & Deny rules." },
+                    { title: "Connexion", content: "• VPC Peering: Connecter 2 VPCs (pas transitif).\n• VPN Site-to-Site: Connexion chiffrée sur internet public.\n• Direct Connect: Connexion physique fibre dédiée (Privé, Sécurisé, Rapide, Pas internet)." },
+                    { title: "Global", content: "• Route 53: DNS (Domain Name System). Health Checks. Routing policies (Latency, Geo).\n• CloudFront: CDN. Utilise les Edge Locations pour cacher le contenu (DDoS protection)." }
+                ]
+            }
+        ];
+
+        // ==============================================================================
+        //  COMPOSANTS
+        // ==============================================================================
+
+        // Modal pour les détails des modules
+        const DetailModal = ({ isOpen, onClose, data }) => {
+            if (!isOpen || !data) return null;
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop p-4 animate-enter" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className={`p-6 ${data.color} flex justify-between items-center border-b`}>
+                            <h2 className="text-2xl font-bold flex items-center gap-3">
+                                <span className="text-4xl">{data.icon}</span> {data.title}
+                            </h2>
+                            <button onClick={onClose} className="p-2 bg-white/50 rounded-full hover:bg-white transition">✖️</button>
+                        </div>
+                        
+                        <div className="overflow-y-auto p-6 space-y-6">
+                            {data.details.map((section, idx) => (
+                                <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <h3 className="font-bold text-slate-800 text-lg mb-2 border-b border-slate-200 pb-2">{section.title}</h3>
+                                    <div className="text-sm text-slate-600 whitespace-pre-line leading-relaxed font-medium">
+                                        {section.content}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="p-4 border-t bg-gray-50 flex justify-end">
+                            <button onClick={onClose} className="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-black transition">Fermer</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Vue Dashboard / Fiches
+        const DashboardView = () => {
+            const [selectedModule, setSelectedModule] = useState(null);
+
+            return (
+                <div className="animate-enter pb-24">
+                    <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                        <span>📚</span> Modules de Révision (Cliquer pour voir les détails)
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {MODULES.map((mod) => (
+                            <div 
+                                key={mod.id} 
+                                onClick={() => setSelectedModule(mod)}
+                                className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group"
+                            >
+                                <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-3xl mb-4 ${mod.color}`}>
+                                    {mod.icon}
+                                </div>
+                                <h3 className="font-bold text-lg text-slate-800 mb-2 group-hover:text-indigo-600 transition-colors">{mod.title}</h3>
+                                <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">
+                                    {mod.details.length} Sujets • Cliquez pour ouvrir
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <DetailModal isOpen={!!selectedModule} onClose={() => setSelectedModule(null)} data={selectedModule} />
+                </div>
+            );
+        };
+
+        // Vue Flashcards
+        const FlashcardsView = () => {
+            const [cards, setCards] = useState([]);
+            const [index, setIndex] = useState(0);
+            const [flipped, setFlipped] = useState(false);
+
+            useEffect(() => {
+                let allCards = [];
+                MODULES.forEach(mod => {
+                    mod.details.forEach(det => {
+                        const lines = det.content.split('\n');
+                        lines.forEach(line => {
+                            if(line.includes(':')) {
+                                const [term, def] = line.replace('• ', '').split(':');
+                                if(term && def) allCards.push({ front: term.trim(), back: def.trim(), category: mod.title });
+                            }
+                        });
+                    });
+                });
+                setCards(allCards.sort(() => Math.random() - 0.5));
+            }, []);
+
+            const nextCard = () => {
+                setFlipped(false);
+                setTimeout(() => setIndex((prev) => (prev + 1) % cards.length), 200);
+            };
+
+            if (cards.length === 0) return <div className="text-white text-center">Chargement...</div>;
+
+            return (
+                <div className="flex flex-col items-center min-h-[60vh] animate-enter">
+                    <div className="w-full max-w-lg h-80 perspective cursor-pointer group mb-8" onClick={() => setFlipped(!flipped)}>
+                        <div className={`relative w-full h-full duration-500 transform-style-3d transition-transform ${flipped ? 'rotate-y-180' : ''}`}>
+                            <div className="absolute w-full h-full bg-white rounded-3xl shadow-xl border-b-4 border-indigo-500 flex flex-col items-center justify-center p-8 backface-hidden">
+                                <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-6">
+                                    {cards[index].category}
+                                </span>
+                                <h3 className="text-3xl font-extrabold text-slate-800 text-center leading-tight">{cards[index].front}</h3>
+                                <div className="absolute bottom-6 text-gray-400 text-xs animate-bounce mt-4">Cliquer pour voir la réponse</div>
+                            </div>
+                            <div className="absolute w-full h-full bg-slate-800 rounded-3xl shadow-xl flex flex-col items-center justify-center p-8 backface-hidden rotate-y-180 border-b-4 border-slate-900">
+                                <p className="text-xl text-white text-center font-medium leading-relaxed">{cards[index].back}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button onClick={nextCard} className="bg-white text-indigo-600 px-10 py-4 rounded-2xl font-bold shadow-lg hover:bg-indigo-50 hover:scale-105 transition flex items-center gap-2">
+                        Carte Suivante ➡️
+                    </button>
+                    <div className="mt-6 text-white font-mono text-sm">{index + 1} / {cards.length}</div>
+                </div>
+            );
+        };
+
+        // Vue Quiz
+        const QuizView = () => {
+            const [quizSet, setQuizSet] = useState([]);
+            const [current, setCurrent] = useState(0);
+            const [score, setScore] = useState(0);
+            const [showResult, setShowResult] = useState(false);
+            const [selected, setSelected] = useState(null);
+            const [quizSize, setQuizSize] = useState(10);
+            const [showConfig, setShowConfig] = useState(true);
+
+            const startQuiz = (size) => {
+                const shuffled = [...QUESTION_BANK].sort(() => 0.5 - Math.random());
+                setQuizSet(shuffled.slice(0, size));
+                setCurrent(0);
+                setScore(0);
+                setShowResult(false);
+                setSelected(null);
+                setShowConfig(false);
+            };
+
+            const handleAnswer = (idx) => {
+                if (selected !== null) return;
+                setSelected(idx);
+                if (idx === quizSet[current].a) setScore(score + 1);
+            };
+
+            const next = () => {
+                if (current < quizSet.length - 1) {
+                    setCurrent(current + 1);
+                    setSelected(null);
+                } else {
+                    setShowResult(true);
+                }
+            };
+
+            if (showConfig) {
+                return (
+                    <div className="max-w-md mx-auto bg-white p-8 rounded-3xl shadow-xl text-center animate-enter">
+                        <div className="text-6xl mb-4">🎯</div>
+                        <h2 className="text-2xl font-bold text-slate-800 mb-4">Configuration du Quiz</h2>
+                        <p className="text-slate-600 mb-6">Choisissez le nombre de questions</p>
+                        <div className="space-y-3">
+                            {[10, 20, 30, 50].map(size => (
+                                <button 
+                                    key={size}
+                                    onClick={() => startQuiz(size)}
+                                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-4 rounded-xl font-bold hover:scale-105 transition shadow-lg"
+                                >
+                                    {size} Questions
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-6">Total de {QUESTION_BANK.length} questions disponibles</p>
+                    </div>
+                );
+            }
+
+            if (showResult) {
+                const pct = (score / quizSet.length) * 100;
+                return (
+                    <div className="max-w-md mx-auto bg-white p-8 rounded-3xl shadow-xl text-center animate-enter border border-gray-100">
+                        <div className="text-6xl mb-4">{pct >= 70 ? '🎉' : '📚'}</div>
+                        <h2 className="text-2xl font-bold text-slate-800 mb-2">Résultat Final</h2>
+                        <p className="text-5xl font-black gradient-text mb-6">{score} / {quizSet.length}</p>
+                        <div className={`p-4 rounded-xl mb-6 font-bold ${pct >= 70 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                            {pct >= 70 ? "Excellent ! Vous êtes prêt pour l'examen !" : "Continuez à réviser, vous progressez !"}
+                        </div>
+                        <div className="text-sm text-slate-600 mb-6">
+                            Score: {pct.toFixed(1)}%
+                        </div>
+                        <button onClick={() => setShowConfig(true)} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:scale-105 transition">
+                            Nouveau Quiz 🔄
+                        </button>
+                    </div>
+                );
+            }
+
+            if (quizSet.length === 0) return <div className="text-white text-center">Chargement...</div>;
+
+            const q = quizSet[current];
+
+            return (
+                <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl shadow-lg border border-gray-100 animate-enter relative overflow-hidden">
+                    <div className="absolute top-0 left-0 h-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500" style={{ width: `${((current + 1) / quizSet.length) * 100}%` }}></div>
+                    
+                    <div className="flex justify-between items-center mb-6 mt-2">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Question {current + 1}/{quizSet.length}</span>
+                        <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-bold">{q.category}</span>
+                    </div>
+
+                    <h3 className="text-xl font-bold text-slate-800 mb-8 min-h-[60px]">{q.q}</h3>
+
+                    <div className="space-y-3">
+                        {q.options.map((opt, idx) => {
+                            let style = "border-gray-200 hover:bg-gray-50";
+                            let icon = ["A", "B", "C", "D", "E"][idx];
+                            
+                            if (selected !== null) {
+                                if (idx === q.a) { style = "border-green-500 bg-green-50 text-green-800"; icon = "✓"; }
+                                else if (idx === selected) { style = "border-red-500 bg-red-50 text-red-800"; icon = "✗"; }
+                                else { style = "opacity-50 grayscale"; }
+                            }
+
+                            return (
+                                <button key={idx} onClick={() => handleAnswer(idx)} disabled={selected !== null}
+                                    className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 group ${style}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-2 shrink-0 ${selected === null ? 'bg-white text-gray-400 border-gray-200 group-hover:border-indigo-400 group-hover:text-indigo-500' : 'bg-white/50 border-transparent'}`}>
+                                        {icon}
+                                    </div>
+                                    <span className="font-medium">{opt}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    
+                    {selected !== null && q.tip && (
+                        <div className="mt-4 p-4 bg-blue-50 text-blue-800 rounded-xl text-sm border border-blue-100 animate-enter">
+                            <strong>💡 Astuce :</strong> {q.tip}
+                        </div>
+                    )}
+
+                    <div className="mt-8 flex justify-between items-center h-12">
+                        <div className="text-sm text-slate-500">Score actuel: {score}/{current + (selected !== null ? 1 : 0)}</div>
+                        {selected !== null && (
+                            <button onClick={next} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3 rounded-xl font-bold hover:scale-105 transition flex items-center gap-2 animate-enter shadow-lg">
+                                {current < quizSet.length - 1 ? 'Suivant ➜' : 'Voir Résultats 🎯'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Application principale
+        const App = () => {
+            const [view, setView] = useState('quiz');
+
+            return (
+                <div className="min-h-screen">
+                    <div className="bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-0 z-40">
+                        <div className="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <span className="text-4xl">☁️</span>
+                                <div>
+                                    <h1 className="font-extrabold text-2xl text-white tracking-tight">AWS Cloud Practitioner</h1>
+                                    <p className="text-xs text-white/80 font-bold tracking-widest">CLF-C02 • {QUESTION_BANK.length} QUESTIONS</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-5xl mx-auto px-4 py-8">
+                        <div className="flex justify-center mb-10">
+                            <div className="bg-white/20 backdrop-blur-md p-1.5 rounded-2xl shadow-lg border border-white/30 inline-flex gap-1">
+                                {[
+                                    { id: 'quiz', label: 'Quiz Interactif', emoji: '🎯' },
+                                    { id: 'dashboard', label: 'Fiches de Révision', emoji: '📚' },
+                                    { id: 'flashcards', label: 'Flashcards', emoji: '🧠' }
+                                ].map(tab => (
+                                    <button 
+                                        key={tab.id} 
+                                        onClick={() => setView(tab.id)}
+                                        className={`px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${view === tab.id ? 'bg-white text-indigo-600 shadow-lg' : 'text-white hover:bg-white/10'}`}
+                                    >
+                                        <span>{tab.emoji}</span> {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="transition-all">
+                            {view === 'quiz' && <QuizView />}
+                            {view === 'dashboard' && <DashboardView />}
+                            {view === 'flashcards' && <FlashcardsView />}
+                        </div>
+                    </div>
+
+                    <div className="text-center text-white/60 text-xs pb-8 mt-12">
+                        Basé sur les Practice Exams Officiels AWS • {QUESTION_BANK.length} questions • 2025
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
